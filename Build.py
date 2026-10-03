@@ -2,6 +2,9 @@
 # @ BSD 3-Clause License
 import os
 import os.path as osp
+import importlib.util
+import sys
+import sysconfig
 import toml
 
 
@@ -49,9 +52,42 @@ def __get_proj_info():
 def __get_build_def(proj_dir, venv_dir):
     try:
         config = toml.load("pyproject.toml")
-        return {
+        build_def = {
             k: v.replace("$project$", proj_dir).replace("$venv$", venv_dir) for k, v in config["tool"]["build"].items()
         }
+        # The upstream definition uses Windows' Lib/site-packages layout. Resolve
+        # resources from the interpreter running this file for POSIX builds too.
+        site_packages = sysconfig.get_paths()["purelib"]
+        for key in ("add-binary", "add-data"):
+            if key in build_def:
+                build_def[key] = build_def[key].replace(
+                    osp.join(venv_dir, "Lib", "site-packages"), site_packages
+                )
+                build_def[key] = build_def[key].replace(
+                    osp.join(venv_dir, "lib", "site-packages"), site_packages
+                )
+
+        def package_dir(package_name):
+            spec = importlib.util.find_spec(package_name)
+            if spec is None or not spec.submodule_search_locations:
+                raise ModuleNotFoundError(f"Cannot locate installed package: {package_name}")
+            return next(iter(spec.submodule_search_locations))
+
+        # Keep PyInstaller's destination paths stable while discovering the source
+        # paths of platform-specific dependency resources dynamically.
+        build_def["add-binary"] = "|".join(
+            [
+                f"{osp.join(package_dir('fmod_toolkit'), 'libfmod')}:fmod_toolkit/libfmod",
+                f"{osp.join(package_dir('UnityPy'), 'resources', 'lzma.tpk')}:UnityPy/resources",
+            ]
+        )
+        build_def["add-data"] = "|".join(
+            [
+                f"{osp.join(proj_dir, 'src', 'fbs', 'CN')}:src/fbs/CN",
+                f"{osp.join(package_dir('archspec'), 'json')}:archspec/json",
+            ]
+        )
+        return build_def
     except Exception as arg:
         print("× Failed to parse build definition fields.")
         raise arg
@@ -95,12 +131,14 @@ def __build(proj_info, proj_dir, build_def):
     os.mkdir(build_dir)
     os.chdir(build_dir)
 
-    print(f"Creating version file...")
-    version_file = "version.txt"
-    with open(version_file, "w", encoding="UTF-8") as f:
-        # spell-checker: disable
-        f.write(
-            f"""# UTF-8
+    version_file = None
+    if sys.platform == "win32":
+        print(f"Creating version file...")
+        version_file = "version.txt"
+        with open(version_file, "w", encoding="UTF-8") as f:
+            # spell-checker: disable
+            f.write(
+                f"""# UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
 filevers=({proj_info['version'].replace('.',',')},0),
@@ -125,13 +163,19 @@ StringFileInfo([
   ])
 ])
 """
-        )  # End f.write
-        # spell-checker: enable
+            )  # End f.write
+            # spell-checker: enable
 
     print("Running pyinstaller...")
     cmd_pyinstaller = f"poetry run pyinstaller -F"
+    if sys.platform == "darwin":
+        # archspec loads JSON files relative to its __file__.  PyInstaller 6's
+        # one-file layout puts external data under _internal while PYZ modules
+        # stay at the archive root, so keep Python modules external on macOS.
+        cmd_pyinstaller += " --debug=noarchive"
     cmd_pyinstaller += f" --name \"{proj_info['name']}-v{proj_info['version']}\""
-    cmd_pyinstaller += f" --version-file {version_file}"
+    if version_file:
+        cmd_pyinstaller += f" --version-file \"{version_file}\""
     cmd_pyinstaller += f" --icon \"{build_def['icon']}\"" if "icon" in build_def.keys() else ""
     if "add-binary" in build_def.keys():
         for i in build_def["add-binary"].split("|"):

@@ -59,6 +59,7 @@ With `--shader`, Ark-Unpacker reconstructs the available ShaderLab structure and
 - Changelog > [Click here](./CHANGELOG.md)
 - Configuration guide > [Click here](docs/en/ConfigFile.md)
 - Asset lookup guide > [Click here](docs/en/AssetsGuide.md)
+- Native macOS GUI > [View](./README-macOS.md)
 
 ## Usage
 

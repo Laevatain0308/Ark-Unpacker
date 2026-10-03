@@ -14,6 +14,8 @@
    [EN] Added identification and filtering of redundant same-named spine assets, avoiding extraction of duplicated models with incomplete animations.
 2. 新增了 Unity Shader 重建文本导出选项 `--shader`。该输出用于拆解和分析，不保证是可直接重新编译的原始 Shader 源码。
    [EN] Added the `--shader` option to export reconstructed Unity Shader text for analysis; the result is not guaranteed to be recompilable source code.
+3. 从 Stronghold 集成目录中分离 macOS 构建脚本、原生 Swift 图形界面和启动说明，保留为本 fork 的独立源码。
+   [EN] Separated the macOS build script, native Swift GUI, and launcher documentation from the Stronghold integration directory into this fork.
 
 #### 依赖 (Dependencies)
 1. ☆ 将 ArkFBSPy 库升级到游戏版本 2.7.71。  

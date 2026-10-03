@@ -59,6 +59,7 @@
 - 更新日志 > [点击查看](./CHANGELOG.md)
 - 配置文件指引 > [点击查看](docs/zh/ConfigFile.md)
 - 游戏资源查找指南 > [点击查看](docs/zh/AssetsGuide.md)
+- macOS 原生图形应用 > [点击查看](./README-macOS.md)
 
 ## 使用方法 <sub>Usage</sub>
 

@@ -5,6 +5,8 @@ from typing import Callable, List, Optional
 import glob
 import os
 import os.path as osp
+import subprocess
+from functools import lru_cache
 
 import ffmpeg
 from wannacri import usm
@@ -20,6 +22,34 @@ from .utils.Config import Config
 
 FFMPEG_RUN_PARAMS = {"quiet": True}
 CLI = RichCLI.get_instance()
+
+
+@lru_cache(maxsize=1)
+def _resolve_audio_codec(codec: str) -> str:
+    """Use a codec available in the local FFmpeg build.
+
+    Homebrew's macOS FFmpeg build commonly omits ``libvorbis`` while providing
+    ``libopus``.  The upstream default remains unchanged when libvorbis exists;
+    on macOS the equivalent Opus encoder keeps USM conversion working.
+    """
+    if codec != "libvorbis":
+        return codec
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        encoders = result.stdout + result.stderr
+        if " libvorbis " in encoders:
+            return codec
+        if " libopus " in encoders:
+            Logger.info("ResolveUSM: FFmpeg lacks libvorbis; falling back to libopus.")
+            return "libopus"
+    except OSError:
+        pass
+    return codec
 
 
 def is_ffmpeg_available() -> bool:
@@ -122,6 +152,10 @@ class UsmProcessor:
         """
         if not v and not a:
             return
+
+        # Keep the configured codec on systems that provide it, with a portable
+        # fallback for the common macOS/Homebrew FFmpeg build.
+        a_codec = _resolve_audio_codec(a_codec)
 
         if v and not a:
             # Request to convert video only (silent video)
