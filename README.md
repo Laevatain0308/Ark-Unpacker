@@ -49,7 +49,10 @@
 | AudioClip | 音频剪辑       | WAV 音频  |
 | TextAsset | 文本或字节数据 | 未指定    |
 | Mesh      | 3D 模型        | OBJ 文件  |
+| Shader    | Unity Shader 重建文本 | `.shaderlab.txt` |
 | TypeTree  | 对象结构       | JSON 文件 |
+
+启用 `--shader` 后，程序会调用 UnityPy 重建 ShaderLab 结构并输出文本。由于包体通常只保留平台编译数据，输出主要用于拆解和分析，不保证能够直接重新编译。
 
 ### 相关文档
 
@@ -178,7 +181,7 @@
 
 ```
 usage: ArkUnpacker [-h] [-v] [-m {ab,cb,fb,sp,cu}] [-i INPUT] [-o OUTPUT] [-d]
-                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [-g]
+                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [-g]
                    [--no-video] [--no-audio] [-l {0,1,2,3,4}]
 
 Arknights Assets Unpacker. Use no argument to run to enter the interactive CLI mode.
@@ -199,6 +202,7 @@ options:
   --spine               in resolve ab mode: export spine asset files
   --mesh                in resolve ab mode: export mesh resources
   --typetree            in resolve ab mode: export typetree JSON files
+  --shader              in resolve ab mode: reconstruct Shader objects as ShaderLab text
   -g, --group           in resolve ab mode: group files into separate directories named by their source ab file
   --no-video            in resolve usm mode: skip video processing
   --no-audio            in resolve usm mode: skip audio processing

@@ -18,6 +18,7 @@ class ResolveABTask:
     do_aud: bool
     do_mesh: bool
     do_tree: bool
+    do_shader: bool = False
 
 
 @dataclass(frozen=True)

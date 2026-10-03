@@ -71,11 +71,13 @@ def test():
             DIR_DTA = "test/dta"
             DIR_SPI = "test/spi"
             DIR_USM = "test/usm"
+            DIR_SHD = "test/shader"
             shutil.rmtree(DIR_UPK, ignore_errors=True)
             shutil.rmtree(DIR_CMB, ignore_errors=True)
             shutil.rmtree(DIR_DTA, ignore_errors=True)
             shutil.rmtree(DIR_SPI, ignore_errors=True)
             shutil.rmtree(DIR_USM, ignore_errors=True)
+            shutil.rmtree(DIR_SHD, ignore_errors=True)
 
             _print_status(f"[#{i}] Testing...", style="bold cyan")
             with CodeProfiler("unit_1"):
@@ -159,6 +161,22 @@ def test():
                     print(out)
                     print(err)
                     raise AssertionError(f"ArkUnpacker cu mode failed, code={code}")
+            with CodeProfiler("unit_6"):
+                out, err, code = __run_cli(
+                    [
+                        "-m",
+                        "ab",
+                        "-i",
+                        "test/res/client-2.2/arts-ui-common.ab",
+                        "-o",
+                        DIR_SHD,
+                        "--shader",
+                    ]
+                )
+                if code != 0:
+                    print(out)
+                    print(err)
+                    raise AssertionError(f"ArkUnpacker shader mode failed, code={code}")
 
             _print_status(f"[#{i}] Analysing...", style="bold cyan")
             __check_file_list(DIR_UPK)
@@ -166,6 +184,7 @@ def test():
             __check_file_list(DIR_DTA)
             __check_file_list(DIR_SPI)
             __check_file_list(DIR_USM)
+            __check_file_list(DIR_SHD)
 
             _print_status(f"[#{i}] Test success!", style="bold green")
         except BaseException as arg:

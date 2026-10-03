@@ -132,6 +132,8 @@ class Resource:
                 roi = "Audio"
             elif issubclass(clz, uc.Mesh):
                 roi = "Mesh"
+            elif issubclass(clz, uc.Shader):
+                roi = "Shader"
             elif issubclass(clz, uc.AssetBundle):
                 roi = "AssetBundle"
             else:
@@ -207,7 +209,7 @@ class Resource:
                 yield obj  # type: ignore
 
     def get_objects_by_roi_type(
-        self, roi_type: Literal["Image", "Text", "Audio", "Mesh", "AssetBundle"]
+        self, roi_type: Literal["Image", "Text", "Audio", "Mesh", "Shader", "AssetBundle"]
     ) -> Generator[uc.Object, None, None]:
         """Gets all the objects of the given ROI type.
 
@@ -310,6 +312,7 @@ def _resolve_ab_task(
     do_aud: bool,
     do_mesh: bool,
     do_tree: bool,
+    do_shader: bool,
     session: ResolveABWorkerSession,
 ):
     from .ResolveSpine import SpineAsset
@@ -337,6 +340,7 @@ def _resolve_ab_task(
                 (do_txt, "Text"),
                 (do_aud, "Audio"),
                 (do_mesh, "Mesh"),
+                (do_shader, "Shader"),
             ]:
                 if roi_flag:
                     for obj in res.get_objects_by_roi_type(roi_type):  # type: ignore
@@ -395,6 +399,7 @@ def _worker_loop(
             task.do_aud,
             task.do_mesh,
             task.do_tree,
+            task.do_shader,
             session,
         )
     session.worker_done()
@@ -410,6 +415,7 @@ def _iter_ab_tasks(
     do_aud: bool,
     do_mesh: bool,
     do_tree: bool,
+    do_shader: bool,
 ) -> Generator[ResolveABTask, None, None]:
     for i in flist:
         yield ResolveABTask(
@@ -420,6 +426,7 @@ def _iter_ab_tasks(
             do_aud=do_aud,
             do_mesh=do_mesh,
             do_tree=do_tree,
+            do_shader=do_shader,
         )
 
 
@@ -434,6 +441,7 @@ def main(
     do_mesh: bool = True,
     do_tree: bool = False,
     separate: bool = True,
+    do_shader: bool = False,
 ):
     """Extract all the AB files from the given directory or extract a given AB file.
 
@@ -446,6 +454,7 @@ def main(
     :param do_mesh: Whether to extract mesh;
     :param do_tree: Whether to export typetrees as JSON;
     :param separate: Whether to sort the extracted files by their source AB file path.
+    :param do_shader: Whether to reconstruct Shader objects as ShaderLab text;
     :rtype: None;
     """
     Logger.reset_stats()
@@ -519,7 +528,18 @@ def main(
                 panel.update()
 
             pool.dispatch(
-                _iter_ab_tasks(flist, src, destdir, separate, do_img, do_txt, do_aud, do_mesh, do_tree),
+                _iter_ab_tasks(
+                    flist,
+                    src,
+                    destdir,
+                    separate,
+                    do_img,
+                    do_txt,
+                    do_aud,
+                    do_mesh,
+                    do_tree,
+                    do_shader,
+                ),
                 on_dispatch=_on_dispatch,
             )
             current_stage.set_value("正在处理任务")

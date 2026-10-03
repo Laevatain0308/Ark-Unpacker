@@ -246,6 +246,18 @@ class SafeSaver(CoroutineCtrl):
 
         if isinstance(obj, uc.Mesh):
             yield SafeSaver.ExportItem(name, ".obj", obj.export().encode("utf-8"))
+            return
+
+        if isinstance(obj, uc.Shader):
+            shader_text = obj.export()
+            shader_name_match = re.search(r'^\s*Shader\s+"([^"]+)"', shader_text, re.MULTILINE)
+            shader_name = shader_name_match.group(1) if shader_name_match else name or f"Shader_{obj.path_id}"
+            shader_name = re.sub(r"[\\/:*?\"<>|\x00-\x1F]", "#", shader_name)
+            yield SafeSaver.ExportItem(
+                shader_name,
+                ".shaderlab.txt",
+                shader_text.encode("utf-8", "surrogateescape"),
+            )
 
     @staticmethod
     def _save_async(data: bytes, destdir: str, name: str, ext: str, on_saved: Optional[Callable]):

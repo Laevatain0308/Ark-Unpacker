@@ -168,8 +168,8 @@ def run_custom_resolve_ab():
     session.set_bool("按来源分组", separate)
     do_them = (
         session.request(
-            "需要导出的资源类型（可多选，例如 itam 或 it）",
-            note="可选项：i=图片，t=文本，a=音频，m=Mesh，j=Typetree JSON",
+            "需要导出的资源类型（可多选，例如 itams 或 it）",
+            note="可选项：i=图片，t=文本，a=音频，m=Mesh，s=Shader，j=Typetree JSON",
         )
         .lower()
         .strip()
@@ -179,14 +179,16 @@ def run_custom_resolve_ab():
     do_aud = True if "a" in do_them else False
     do_mesh = True if "m" in do_them else False
     do_tree = True if "j" in do_them else False
+    do_shader = True if "s" in do_them else False
     session.set_bool("图片", do_img)
     session.set_bool("文本", do_txt)
     session.set_bool("音频", do_aud)
     session.set_bool("Mesh", do_mesh)
+    session.set_bool("Shader", do_shader)
     session.set_bool("Typetree JSON", do_tree)
     session.confirm_start()
     CLI.title("ArkUnpacker - Processing")
-    AU_Rs.main(src, destdir, do_del, do_img, do_txt, do_aud, do_mesh, do_tree, separate)
+    AU_Rs.main(src, destdir, do_del, do_img, do_txt, do_aud, do_mesh, do_tree, separate, do_shader)
 
 
 def run_custom_combine_image():
@@ -690,6 +692,7 @@ if __name__ == "__main__":
                     args.mesh,
                     args.typetree,
                     args.group,
+                    args.shader,
                 )
             elif args.mode == "sp":
                 parser.validate_input_output_arg(args, allow_file_input=True)

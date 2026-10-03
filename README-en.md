@@ -49,7 +49,10 @@ This project is being gradually upgraded and migrated to [ArkStudio](https://git
 | AudioClip | Audio clip            | WAV audio     |
 | TextAsset | Text or binary data   | Unspecified   |
 | Mesh      | 3D model              | OBJ file      |
+| Shader    | Reconstructed Unity Shader text | `.shaderlab.txt` |
 | TypeTree  | Object structure      | JSON file     |
+
+With `--shader`, Ark-Unpacker reconstructs the available ShaderLab structure and writes it as text. Platform asset bundles often retain only compiled data, so the result is intended for analysis and is not guaranteed to compile as the original shader source.
 
 ### Related Docs
 
@@ -178,7 +181,7 @@ In addition to the **interactive** CLI shown above, the program also supports ru
 
 ```
 usage: ArkUnpacker [-h] [-v] [-m {ab,cb,fb,sp,cu}] [-i INPUT] [-o OUTPUT] [-d]
-                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [-g]
+                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [-g]
                    [--no-video] [--no-audio] [-l {0,1,2,3,4}]
 
 Arknights Assets Unpacker. Use no argument to run to enter the interactive CLI mode.
@@ -199,6 +202,7 @@ options:
   --spine               in resolve ab mode: export spine asset files
   --mesh                in resolve ab mode: export mesh resources
   --typetree            in resolve ab mode: export typetree JSON files
+  --shader              in resolve ab mode: reconstruct Shader objects as ShaderLab text
   -g, --group           in resolve ab mode: group files into separate directories named by their source ab file
   --no-video            in resolve usm mode: skip video processing
   --no-audio            in resolve usm mode: skip audio processing

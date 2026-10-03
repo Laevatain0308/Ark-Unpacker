@@ -12,6 +12,8 @@
 #### 新增 (Added)
 1. ★ 新增了识别并过滤冗余同名 Spine 资源的特性，避免解包出动画不完整的重复模型。  
    [EN] Added identification and filtering of redundant same-named spine assets, avoiding extraction of duplicated models with incomplete animations.
+2. 新增了 Unity Shader 重建文本导出选项 `--shader`。该输出用于拆解和分析，不保证是可直接重新编译的原始 Shader 源码。
+   [EN] Added the `--shader` option to export reconstructed Unity Shader text for analysis; the result is not guaranteed to be recompilable source code.
 
 #### 依赖 (Dependencies)
 1. ☆ 将 ArkFBSPy 库升级到游戏版本 2.7.71。  
