@@ -3,17 +3,22 @@
 import os
 import os.path as osp
 import importlib.util
+import shlex
+import subprocess
 import sys
 import sysconfig
 import toml
 
 
 def __get_venv_dir():
-    import re, subprocess
+    import re
 
-    rst = subprocess.run(["poetry", "env", "info"], capture_output=True)
+    try:
+        rst = subprocess.run(["poetry", "env", "info"], capture_output=True)
+    except OSError:
+        rst = None
 
-    if rst.returncode == 0:
+    if rst is not None and rst.returncode == 0:
         for l in rst.stdout.splitlines():
             match = re.search(r"Path:\s+(.+)", str(l, encoding="UTF-8"))
             if match:
@@ -21,10 +26,17 @@ def __get_venv_dir():
                 if osp.isdir(path):
                     return path
         print("× Failed to parse poetry output to query venv dir.")
-    else:
+    elif rst is not None:
         print(f"× Failed to run poetry to query venv dir. Returned code: {rst.returncode}")
         print(f"- StdErr: {rst.stderr}")
         print(f"- StdOut: {rst.stdout}")
+
+    # Allow builds from an already activated virtual environment when Poetry is
+    # not installed as a shell command on the host.
+    if sys.prefix != sys.base_prefix and osp.isdir(sys.prefix):
+        print("- Poetry command unavailable; using the active Python environment.")
+        return sys.prefix
+
     print("- Please check the compatibility of poetry version.")
     print("- Please check the poetry status and the venv info.")
     raise Exception("venv dir not found or poetry config failed")
@@ -167,7 +179,7 @@ StringFileInfo([
             # spell-checker: enable
 
     print("Running pyinstaller...")
-    cmd_pyinstaller = f"poetry run pyinstaller -F"
+    cmd_pyinstaller = f"{shlex.quote(sys.executable)} -m PyInstaller -F"
     if sys.platform == "darwin":
         # archspec loads JSON files relative to its __file__.  PyInstaller 6's
         # one-file layout puts external data under _internal while PYZ modules
