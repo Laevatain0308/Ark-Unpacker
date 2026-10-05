@@ -178,6 +178,12 @@ def test():
                     print(err)
                     raise AssertionError(f"ArkUnpacker shader mode failed, code={code}")
 
+            with CodeProfiler("unit_7"):
+                subprocess.run(
+                    [sys.executable, "-m", "unittest", "discover", "-s", "test", "-p", "test_shader_programs.py"],
+                    check=True,
+                )
+
             _print_status(f"[#{i}] Analysing...", style="bold cyan")
             __check_file_list(DIR_UPK)
             __check_file_list(DIR_CMB)

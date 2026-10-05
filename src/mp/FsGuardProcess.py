@@ -15,7 +15,7 @@ from .ProcessReporter import ProcessReporter
 
 
 class _FamilyState(NamedTuple):
-    hashes: set[bytes]
+    hashes: dict[bytes, str]
     used_paths: set[str]
 
 
@@ -44,6 +44,11 @@ class FsGuardClient:
         self._request_id = 0
 
     def prepare_write(self, destdir: str, name: str, ext: str, data_hash: bytes) -> Optional[str]:
+        response = self.prepare_write_response(destdir, name, ext, data_hash)
+        return response.path if response.approved else None
+
+    def prepare_write_response(self, destdir: str, name: str, ext: str, data_hash: bytes) -> PrepareWriteResponse:
+        """Return the actual path on reuse too, for manifests linking deduplicated files."""
         if self._reporter:
             self._reporter.file_queued()
         response = self._request(
@@ -57,9 +62,7 @@ class FsGuardClient:
             )
         )
         self._request_id += 1
-        if not response.approved:
-            return None
-        return response.path
+        return response
 
     def _request(self, request: PrepareWriteRequest) -> PrepareWriteResponse:
         self._request_queue.put(request)
@@ -192,7 +195,7 @@ class _FsGuardRuntime:
         state = self._get_family_state(norm_destdir, name, ext)
 
         if request.data_hash in state.hashes:
-            self._respond(request.worker_slot, PrepareWriteResponse(request.request_id, False))
+            self._respond(request.worker_slot, PrepareWriteResponse(request.request_id, False, state.hashes[request.data_hash]))
             return
 
         candidate = dest
@@ -202,8 +205,8 @@ class _FsGuardRuntime:
             suffix += 1
 
         self._ensure_dir(destdir)
-        state.hashes.add(request.data_hash)
         normalized_candidate = self._normalize_path(candidate)
+        state.hashes[request.data_hash] = normalized_candidate
         state.used_paths.add(normalized_candidate)
         self._remember_file(
             norm_destdir,
@@ -223,14 +226,14 @@ class _FsGuardRuntime:
 
     @lru_cache(maxsize=1024)
     def _get_family_state(self, destdir: str, name: str, ext: str) -> _FamilyState:
-        state = _FamilyState(set(), set())
+        state = _FamilyState({}, set())
         dir_state = self._get_dir_state(destdir)
         for entry in dir_state.files_by_ext.get(ext, []):
             if not entry.name.startswith(name):
                 continue
             state.used_paths.add(entry.path)
             if entry.data_hash is not None:
-                state.hashes.add(entry.data_hash)
+                state.hashes[entry.data_hash] = entry.path
         return state
 
     @lru_cache(maxsize=1024)

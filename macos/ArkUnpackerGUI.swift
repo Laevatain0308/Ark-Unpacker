@@ -13,6 +13,7 @@ final class AppModel: NSObject, ObservableObject {
     @Published var exportSpine = false
     @Published var exportMesh = false
     @Published var exportShader = false
+    @Published var exportShaderPrograms = false
     @Published var exportTypetree = false
     @Published var groupByBundle = true
     @Published var skipVideo = false
@@ -77,6 +78,7 @@ final class AppModel: NSObject, ObservableObject {
             if exportSpine { args.append("--spine") }
             if exportMesh { args.append("--mesh") }
             if exportShader { args.append("--shader") }
+            if exportShaderPrograms { args.append("--shader-programs") }
             if exportTypetree { args.append("--typetree") }
             if groupByBundle { args.append("-g") }
         case "cu":
@@ -194,6 +196,7 @@ struct ContentView: View {
                         Toggle("导出 Spine", isOn: $model.exportSpine)
                         Toggle("导出 Mesh", isOn: $model.exportMesh)
                         Toggle("导出 Shader", isOn: $model.exportShader)
+                        Toggle("导出 Shader 平台程序", isOn: $model.exportShaderPrograms)
                         Toggle("导出类型树", isOn: $model.exportTypetree)
                         Toggle("按资源包分组", isOn: $model.groupByBundle)
                     }

@@ -9,6 +9,12 @@
 -----
 
 ## v5.2
+#### Fork 更新 (2026-10-06)
+1. 新增独立 `--shader-programs` 选项、交互菜单 `p` 和 macOS GUI 选项，导出完整 GLSL/平台二进制载荷及变体 JSON 清单。处理多平台、多段数据、参数入口与共享程序引用，并按版本解析关键字；单个失败保留诊断，不中止其他程序。原 `--shader` 保持不变。
+   [EN] Added stored platform program exports with versioned segments/entries, complete variant references, keywords, hashes and per-entry diagnostics; existing `--shader` exports are unchanged.
+2. 平台程序导出不是原始 HLSL 恢复，不保证文本能直接重新编译；Vulkan 保存 Unity 原始二进制载荷，不伪装为 GLSL。
+   [EN] Platform exports do not recover original HLSL or guarantee recompilation; Vulkan payloads remain binary.
+
 #### 新增 (Added)
 1. ★ 新增了识别并过滤冗余同名 Spine 资源的特性，避免解包出动画不完整的重复模型。  
    [EN] Added identification and filtering of redundant same-named spine assets, avoiding extraction of duplicated models with incomplete animations.

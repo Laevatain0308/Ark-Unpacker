@@ -54,6 +54,27 @@ This project is being gradually upgraded and migrated to [ArkStudio](https://git
 
 With `--shader`, Ark-Unpacker reconstructs the available ShaderLab structure and writes it as text. Platform asset bundles often retain only compiled data, so the result is intended for analysis and is not guaranteed to compile as the original shader source.
 
+### Stored Shader platform programs
+
+Use `--shader-programs` independently of `--shader`, enter `p` in the interactive AB menu, or enable “导出 Shader 平台程序” in the native macOS GUI.
+
+```shell
+python Main.py -m ab -i /path/to/stylizedwater.ab -o /path/to/output --shader-programs
+python Main.py -m ab -i /path/to/shaders -o /path/to/output --shader --shader-programs -g
+```
+
+Each Shader gets a stable `<safe-name>__<PathID>__<source-hash>.programs/` directory containing `manifest.json`, individual GLSL files such as `p0_9_blob000024_s0.glsl`, and binary payloads such as `p1_18_blob000024_s0.bin`. Extraction uses platform segment arrays, the versioned entry table, and UnityPy's `ShaderSubProgram` parser; it never locates code by scanning printable strings or searching for `#version`.
+
+GLSL files preserve the exact stored program bytes. Programs containing both VERTEX and FRAGMENT guards are marked `payload_stage: combined`; their conditional structure is preserved without splitting. Vulkan `.bin` files are marked `unity-vulkan-payload`, since they may contain Unity headers and SMOL-V compressed modules rather than standalone SPIR-V. Other parsed binary programs are also saved intact.
+
+The manifest records the Shader name, Unity version, bundle/CAB/PathID, platform enum, compression segments, entry and code offsets, GPU type, all SubShader/Pass/variant references, keywords, actual relative output paths, and SHA-256. `references[].stage` is the serialized stage slot; it may differ from `payload_stage`. Code offsets are relative to decompressed segments. Parameter entries are listed separately and are not exported as executable programs. The existing filesystem guard handles deduplication and collisions; manifests reference the actual saved/reused files.
+
+Unity 2021.2+ indices are resolved against `m_KeywordNames`, including `m_PlayerSubPrograms`. Ambiguous platform associations remain in `unresolved_references` with diagnostics rather than being guessed. Earlier versions preserve global/local indices and embedded program keyword names without inventing missing index/name mappings. Both flat/nested compression arrays and the pre/post-2019.3 entry tables are supported. Unsupported layouts, malformed segments/programs and invalid keyword indices produce specific diagnostics without stopping other programs. Legacy `m_SubProgramBlob`/script-only layouts are not supported by this option; `--shader` retains its behavior.
+
+**This exports stored platform programs, not original HLSL. Text is not guaranteed to recompile.** No SPIR-V/SMOL-V decompiler or Metal/DXBC disassembler is included.
+
+Run `python -m unittest discover -s test -p test_shader_programs.py -v`; set `ARK_SHADER_SAMPLE=/path/to/stylizedwater.ab` to enable the real sample acceptance test. Its 32 combined GLES programs and BlobIndex range are sample assertions, not extraction rules.
+
 ### Related Docs
 
 - Changelog > [Click here](./CHANGELOG.md)
@@ -182,7 +203,7 @@ In addition to the **interactive** CLI shown above, the program also supports ru
 
 ```
 usage: ArkUnpacker [-h] [-v] [-m {ab,cb,fb,sp,cu}] [-i INPUT] [-o OUTPUT] [-d]
-                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [-g]
+                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [--shader-programs] [-g]
                    [--no-video] [--no-audio] [-l {0,1,2,3,4}]
 
 Arknights Assets Unpacker. Use no argument to run to enter the interactive CLI mode.
@@ -204,6 +225,7 @@ options:
   --mesh                in resolve ab mode: export mesh resources
   --typetree            in resolve ab mode: export typetree JSON files
   --shader              in resolve ab mode: reconstruct Shader objects as ShaderLab text
+  --shader-programs     in resolve ab mode: export stored GPU programs and variant metadata
   -g, --group           in resolve ab mode: group files into separate directories named by their source ab file
   --no-video            in resolve usm mode: skip video processing
   --no-audio            in resolve usm mode: skip audio processing

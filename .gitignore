@@ -7,6 +7,7 @@ test/fbo
 test/spi
 test/upk
 test/usm
+test/shader
 
 *.exe
 *.json

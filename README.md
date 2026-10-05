@@ -54,6 +54,38 @@
 
 启用 `--shader` 后，程序会调用 UnityPy 重建 ShaderLab 结构并输出文本。由于包体通常只保留平台编译数据，输出主要用于拆解和分析，不保证能够直接重新编译。
 
+### Shader 平台程序导出
+
+`--shader-programs` 是独立于 `--shader` 的 AB 导出选项；交互菜单输入 `p`，macOS GUI 勾选“导出 Shader 平台程序”。它根据平台压缩段与版本化入口表定位程序，并使用 UnityPy 的 `ShaderSubProgram` 解析器读取包体已有的程序字节，不扫描文本或搜索 `#version`。
+
+```shell
+python Main.py -m ab -i /path/to/stylizedwater.ab -o /path/to/output --shader-programs
+# 可同时保留已有 ShaderLab 重建文本
+python Main.py -m ab -i /path/to/shaders -o /path/to/output --shader --shader-programs -g
+```
+
+输出示例（目录后缀由来源 bundle/CAB 与 PathID 确定，程序名由平台、BlobIndex、数据段确定）：
+
+```text
+output/
+└── Torappu#Scene#StylizedWater__<PathID>__<source-hash>.programs/
+    ├── manifest.json
+    ├── p0_9_blob000024_s0.glsl
+    ├── p0_9_blob000025_s0.glsl
+    ├── ...
+    └── p1_18_blob000024_s0.bin
+```
+
+GLES/OpenGL 的 `.glsl` 保留完整 `m_ProgramCode` 字节；同时带有 VERTEX/FRAGMENT 条件编译的程序标记为 `payload_stage: combined`，不拆分或改写代码。Vulkan 导出 `.bin`，标记为 `unity-vulkan-payload`：它可能包含 Unity 包装头或 SMOL-V 压缩数据，不能当作已反编译的 GLSL 或纯 SPIR-V 模块。其他可解析的平台载荷也原样导出 `.bin`。
+
+`manifest.json` 记录 Shader 名、Unity 版本、bundle/CAB/PathID、平台枚举、压缩段位置、程序入口偏移与长度、GPU 类型、全部 SubShader/Pass/变体引用、关键字、实际文件相对路径和 SHA-256。`references[].stage` 指序列化元数据的阶段槽位，`payload_stage` 描述完整载荷，两者可以不同。`code_offset_in_segment` 是解压后数据段中的偏移，不是压缩包中的代码偏移。参数入口单独列在 `parameter_entries`，不会冒充程序导出。重复导出遵循已有去重/重名策略，清单指向实际保存或复用的文件。
+
+Unity 2021.2+ 的关键字索引按 `m_KeywordNames` 解析，并兼容 `m_PlayerSubPrograms`。多个平台共用同一种 GPU 类型且无法唯一关联时，变体保留在 `unresolved_references` 并记录 `ambiguous_platform`，不会猜测。较早版本保留原始全局/局部索引及程序自带的关键字名称；没有名字表时不会编造索引与名称的映射。支持压缩数组的单段与多段形式，以及 Unity 2019.3 前后的入口表布局。损坏的段、程序、关键字索引或未知序列化布局在清单 `diagnostics` 中记录具体原因，其他程序继续导出。旧式 `m_SubProgramBlob`/脚本布局暂不由此选项导出；原 `--shader` 行为保留。
+
+**这是平台程序导出，不是原始 HLSL 恢复，也不保证文本可以直接重新编译。** 不集成 SPIR-V/SMOL-V 反编译器或 Metal/DXBC 反汇编器。
+
+验证：`python -m unittest discover -s test -p test_shader_programs.py -v`。可设置 `ARK_SHADER_SAMPLE=/path/to/stylizedwater.ab` 启用真实包体验收，检查 32 个 GLES combined 程序及深度/折射关键字对应关系；这些数量和 BlobIndex 仅用于该样本测试，不是导出规则。
+
 ### 相关文档
 
 - 更新日志 > [点击查看](./CHANGELOG.md)
@@ -182,7 +214,7 @@
 
 ```
 usage: ArkUnpacker [-h] [-v] [-m {ab,cb,fb,sp,cu}] [-i INPUT] [-o OUTPUT] [-d]
-                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [-g]
+                   [--image] [--text] [--audio] [--spine] [--mesh] [--typetree] [--shader] [--shader-programs] [-g]
                    [--no-video] [--no-audio] [-l {0,1,2,3,4}]
 
 Arknights Assets Unpacker. Use no argument to run to enter the interactive CLI mode.
@@ -204,6 +236,7 @@ options:
   --mesh                in resolve ab mode: export mesh resources
   --typetree            in resolve ab mode: export typetree JSON files
   --shader              in resolve ab mode: reconstruct Shader objects as ShaderLab text
+  --shader-programs     in resolve ab mode: export stored GPU programs and variant metadata
   -g, --group           in resolve ab mode: group files into separate directories named by their source ab file
   --no-video            in resolve usm mode: skip video processing
   --no-audio            in resolve usm mode: skip audio processing

@@ -11,6 +11,7 @@ from typing import (
     Union,
 )
 import multiprocessing as mp
+import os
 import os.path as osp
 
 import UnityPy
@@ -303,6 +304,51 @@ class ResolveABWorkerSession:
             destdir,
         )
 
+    def save_shader_programs(self, reader, abfile: str, destdir: str):
+        from .ShaderPrograms import collect_shader_programs, diagnostic, export_directory, source_info
+
+        try:
+            manifest, payloads = collect_shader_programs(reader.read(), abfile)
+        except Exception as exc:
+            manifest = {"source": source_info(reader, abfile), "unity_version": reader.assets_file.unity_version}
+            diagnostic(manifest, "shader_parse_failed", f"{type(exc).__name__}: {exc}")
+            payloads = []
+        target = osp.join(destdir, export_directory(manifest.get("shader_name", "Shader"), manifest["source"]))
+        for record, filename, data in payloads:
+            saved = False
+            try:
+                response = self._fs_client.prepare_write_response(target, filename, "", SafeSaver.hash_data(data))
+                if response.path is None:
+                    raise RuntimeError("Filesystem guard returned no output path")
+                if response.approved:
+                    SafeSaver.write_data(response.path, data)
+                    saved = True
+                else:
+                    with open(response.path, "rb") as existing:
+                        if SafeSaver.hash_data(existing.read()) != SafeSaver.hash_data(data):
+                            raise RuntimeError("Deduplicated output does not match the parsed payload")
+                record["file"] = osp.relpath(response.path, target).replace(os.sep, "/")
+                record["status"] = "exported"
+            except Exception as exc:
+                record["status"] = "failed"
+                diagnostic(record, "program_write_failed", f"{type(exc).__name__}: {exc}")
+                self.log("error", f"ShaderPrograms: {filename}: {exc}")
+            finally:
+                self._reporter.file_saved(saved)
+        def log_diagnostics(value):
+            if isinstance(value, dict):
+                for issue in value.get("diagnostics", []):
+                    self.log("warn", f"ShaderPrograms: {issue['code']}: {issue['reason']}")
+                for key, child in value.items():
+                    if key not in ("diagnostics", "variant_references"):
+                        log_diagnostics(child)
+            elif isinstance(value, list):
+                for child in value:
+                    log_diagnostics(child)
+
+        log_diagnostics(manifest)
+        self.save_json(manifest, target, "manifest")
+
 
 def _resolve_ab_task(
     abfile: str,
@@ -313,6 +359,7 @@ def _resolve_ab_task(
     do_mesh: bool,
     do_tree: bool,
     do_shader: bool,
+    do_shader_programs: bool,
     session: ResolveABWorkerSession,
 ):
     from .ResolveSpine import SpineAsset
@@ -345,6 +392,11 @@ def _resolve_ab_task(
                 if roi_flag:
                     for obj in res.get_objects_by_roi_type(roi_type):  # type: ignore
                         session.save_object(obj, destdir)
+
+            if do_shader_programs:
+                for reader in res.env.objects:
+                    if reader.type.name == "Shader":
+                        session.save_shader_programs(reader, abfile, destdir)
 
             # Export typetrees as JSON
             if do_tree:
@@ -400,6 +452,7 @@ def _worker_loop(
             task.do_mesh,
             task.do_tree,
             task.do_shader,
+            task.do_shader_programs,
             session,
         )
     session.worker_done()
@@ -416,6 +469,7 @@ def _iter_ab_tasks(
     do_mesh: bool,
     do_tree: bool,
     do_shader: bool,
+    do_shader_programs: bool,
 ) -> Generator[ResolveABTask, None, None]:
     for i in flist:
         yield ResolveABTask(
@@ -427,6 +481,7 @@ def _iter_ab_tasks(
             do_mesh=do_mesh,
             do_tree=do_tree,
             do_shader=do_shader,
+            do_shader_programs=do_shader_programs,
         )
 
 
@@ -442,6 +497,7 @@ def main(
     do_tree: bool = False,
     separate: bool = True,
     do_shader: bool = False,
+    do_shader_programs: bool = False,
 ):
     """Extract all the AB files from the given directory or extract a given AB file.
 
@@ -455,6 +511,7 @@ def main(
     :param do_tree: Whether to export typetrees as JSON;
     :param separate: Whether to sort the extracted files by their source AB file path.
     :param do_shader: Whether to reconstruct Shader objects as ShaderLab text;
+    :param do_shader_programs: Whether to export stored platform programs and variant metadata;
     :rtype: None;
     """
     Logger.reset_stats()
@@ -539,6 +596,7 @@ def main(
                     do_mesh,
                     do_tree,
                     do_shader,
+                    do_shader_programs,
                 ),
                 on_dispatch=_on_dispatch,
             )
